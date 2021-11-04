@@ -223,6 +223,7 @@ const WIN32_MISSING: Set<string> = new Set([
  */
 const WIN32_CUSTOM_BUILD: Set<string> = new Set([
   "11.0.1",
+  "12.0.1",
 ]);
 
 /** Gets an LLVM download URL for the Windows platform. */
