@@ -242,7 +242,8 @@ function getCustomBuildURL(version, prefix, suffix) {
  * LLVM Version that are custom built for windows
  */ const WIN32_CUSTOM_BUILD = new Set([
     "11.0.1",
-    "12.0.1", 
+    "12.0.1",
+    "13.0.0", 
 ]);
 /** Gets an LLVM download URL for the Windows platform. */ function getWin32Url(version, options) {
     if (!options.forceVersion && WIN32_MISSING.has(version)) return null;
