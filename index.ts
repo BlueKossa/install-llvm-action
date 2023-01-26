@@ -10,6 +10,22 @@ export interface Options {
   forceVersion: boolean,
   ubuntuVersion?: string,
   cached: boolean,
+  downloadUrl?: string,
+  auth?: string,
+  env: boolean,
+}
+
+function getOptions(): Options {
+  return {
+    version: core.getInput("version"),
+    forceVersion: (core.getInput("force-version") || "").toLowerCase() === "true",
+    ubuntuVersion: core.getInput("ubuntu-version"),
+    directory: core.getInput("directory"),
+    cached: (core.getInput("cached") || "").toLowerCase() === "true",
+    downloadUrl: core.getInput("download-url"),
+    auth: core.getInput("auth"),
+    env: (core.getInput("env") ?? "").toLowerCase() === "true",
+  };
 }
 
 //================================================
@@ -49,6 +65,8 @@ const VERSIONS: Set<string> = getVersions([
   "11.0.0", "11.0.1", "11.1.0",
   "12.0.0", "12.0.1",
   "13.0.0", "13.0.1",
+  "14.0.0", "14.0.1", "14.0.2", "14.0.3", "14.0.4", "14.0.5", "14.0.6",
+  "15.0.0", "15.0.1", "15.0.2", "15.0.3", "15.0.4", "15.0.5", "15.0.6",
 ]);
 
 /** Gets the ordering of two (specific or minimum) LLVM versions. */
@@ -86,10 +104,15 @@ function getSpecificVersions(version: string): string[] {
 // URL
 //================================================
 
+/** Gets a LLVM download URL for GitHub release mirror like artifactory. */
+function getDownloadUrl(baseUrl: string, version: string, prefix: string, suffix: string): string {
+  const file = `${prefix}${version}${suffix}`;
+  return `${baseUrl}/${file}`;
+}
+
 /** Gets a LLVM download URL for GitHub. */
 function getGitHubUrl(version: string, prefix: string, suffix: string): string {
-  const file = `${prefix}${version}${suffix}`;
-  return `https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/${file}`;
+  return getDownloadUrl(`https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}`, version, prefix, suffix);
 }
 
 /** Gets a LLVM download URL for https://releases.llvm.org. */
@@ -113,6 +136,10 @@ const DARWIN_MISSING: Set<string> = new Set([
   "11.0.1",
   "11.1.0",
   "12.0.1",
+  "15.0.3",
+  "15.0.4",
+  "15.0.5",
+  "15.0.6",
 ]);
 
 /** Gets an LLVM download URL for the Darwin platform. */
@@ -124,12 +151,29 @@ function getDarwinUrl(version: string, options: Options): string | null {
   const darwin = version === "9.0.0" ? "-darwin-apple" : "-apple-darwin";
   const prefix = "clang+llvm-";
   const suffix = `-x86_64${darwin}.tar.xz`;
-  if (compareVersions(version, "9.0.1") >= 0) {
+  if (options.downloadUrl) {
+    return getDownloadUrl(options.downloadUrl, version, prefix, suffix);
+  } else if (compareVersions(version, "9.0.1") >= 0) {
     return getGitHubUrl(version, prefix, suffix);
   } else {
     return getReleaseUrl(version, prefix, suffix);
   }
 }
+
+/** The LLVM versions that were never released for the Linux platform. */
+const LINUX_MISSING: Set<string> = new Set([
+  "14.0.1",
+  "14.0.2",
+  "14.0.3",
+  "14.0.4",
+  "14.0.5",
+  "14.0.6",
+  "15.0.0",
+  "15.0.1",
+  "15.0.2",
+  "15.0.3",
+  "15.0.4",
+]);
 
 /**
  * The LLVM versions that should use the last RC version instead of the release
@@ -174,13 +218,20 @@ const UBUNTU: { [key: string]: string } = {
   "12.0.1": "-ubuntu-16.04",
   "13.0.0": "-ubuntu-20.04",
   "13.0.1": "-ubuntu-18.04",
+  "14.0.0": "-ubuntu-18.04",
+  "15.0.5": "-ubuntu-18.04",
+  "15.0.6": "-ubuntu-18.04",
 };
 
 /** The latest supported LLVM version for the Linux (Ubuntu) platform. */
-const MAX_UBUNTU: string = "13.0.0";
+const MAX_UBUNTU: string = "14.0.6";
 
 /** Gets an LLVM download URL for the Linux (Ubuntu) platform. */
 function getLinuxUrl(version: string, options: Options): string | null {
+  if (!options.forceVersion && LINUX_MISSING.has(version)) {
+    return null;
+  }
+
   const rc = UBUNTU_RC.get(version);
   if (rc) {
     version = rc;
@@ -226,6 +277,7 @@ const WIN32_CUSTOM_BUILD: Set<string> = new Set([
   "11.0.1",
   "12.0.1",
 	"13.0.0",
+	"14.0.6",
 ]);
 
 /** Gets an LLVM download URL for the Windows platform. */
@@ -295,11 +347,11 @@ async function install(options: Options): Promise<void> {
 
   console.log(`Installing LLVM and Clang ${options.version} (${specificVersion})...`);
   console.log(`Downloading and extracting '${url}'...`);
-  const archive = await tc.downloadTool(url);
+  const archive = await tc.downloadTool(url, '', options.auth);
 
   let exit;
   if (platform === "win32") {
-    exit = await exec.exec("7z", ["x", archive, `-o${options.directory}`]);
+    exit = await exec.exec("7z", ["x", archive, `-o${options.directory}`, "-y"]);
   } else {
     await io.mkdirP(options.directory);
     exit = await exec.exec("tar", ["xf", archive, "-C", options.directory, "--strip-components=1"]);
@@ -339,17 +391,16 @@ async function run(options: Options): Promise<void> {
   core.exportVariable("LLVM_PATH", options.directory);
   core.exportVariable("LD_LIBRARY_PATH", `${lib}${path.delimiter}${ld}`);
   core.exportVariable("DYLD_LIBRARY_PATH", `${lib}${path.delimiter}${dyld}`);
+
+  if (options.env) {
+    core.exportVariable("CC", path.join(options.directory, "bin", "clang"));
+    core.exportVariable("CXX", path.join(options.directory, "bin", "clang++"));
+  }
 }
 
 async function main() {
   try {
-    const version = core.getInput("version");
-    const forceVersion = (core.getInput("force-version") || "").toLowerCase() === "true";
-    const ubuntuVersion = core.getInput("ubuntu-version");
-    const directory = core.getInput("directory");
-    const cached = (core.getInput("cached") || "").toLowerCase() === "true";
-    const options = { version, forceVersion, ubuntuVersion, directory, cached };
-    await run(options);
+    await run(getOptions());
   } catch (error: any) {
     console.error(error.stack);
     core.setFailed(error.message);
