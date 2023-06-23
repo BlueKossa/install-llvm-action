@@ -28,7 +28,7 @@
     "main": {
       "context": "node",
       "engines": {
-        "node" : "16"
+        "node": "16"
       },
       "includeNodeModules": true
     }
