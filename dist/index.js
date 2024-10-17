@@ -145,7 +145,8 @@ function getOptions() {
     "15.0.3",
     "15.0.4",
     "15.0.5",
-    "15.0.6"
+    "15.0.6",
+    "18.1.8"
 ]);
 /** Gets the ordering of two (specific or minimum) LLVM versions. */ function compareVersions(left, right) {
     const leftComponents = left.split(".").map((c)=>parseInt(c, 10));
@@ -283,7 +284,7 @@ function getOptions() {
 function getCustomBuildURL(version, prefix, suffix) {
     const file = `${prefix}${version}${suffix}`;
     // https://github.com/ghaith/llvm-package-windows/releases/download/v11.0.1/LLVM-11.0.1-win64.7z
-    return `https://github.com/PLC-lang/llvm-package-windows/releases/download/v${version}/${file}`;
+    return `https://github.com/BlueKossa/llvm-package-windows/releases/download/v${version}/${file}`;
 }
 /** The LLVM versions that were never released for the Windows platform. */ const WIN32_MISSING = new Set([
     "10.0.1"
@@ -291,10 +292,7 @@ function getCustomBuildURL(version, prefix, suffix) {
 /**
  * LLVM Version that are custom built for windows
  */ const WIN32_CUSTOM_BUILD = new Set([
-    "11.0.1",
-    "12.0.1",
-    "13.0.0",
-    "14.0.6"
+  "18.1.8"
 ]);
 /** Gets an LLVM download URL for the Windows platform. */ function getWin32Url(version, options) {
     if (!options.forceVersion && WIN32_MISSING.has(version)) return null;
