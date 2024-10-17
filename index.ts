@@ -262,7 +262,7 @@ function getLinuxUrl(version: string, options: Options): string | null {
 function getCustomBuildURL(version: string, prefix: string, suffix: string) : string {
   const file = `${prefix}${version}${suffix}`;
   // https://github.com/ghaith/llvm-package-windows/releases/download/v11.0.1/LLVM-11.0.1-win64.7z
-  return `https://github.com/PLC-lang/llvm-package-windows/releases/download/v${version}/${file}`;
+  return `https://github.com/BlueKossa/llvm-package-windows/releases/download/v${version}/${file}`;
 }
 
 /** The LLVM versions that were never released for the Windows platform. */
@@ -274,10 +274,7 @@ const WIN32_MISSING: Set<string> = new Set([
  * LLVM Version that are custom built for windows
  */
 const WIN32_CUSTOM_BUILD: Set<string> = new Set([
-  "11.0.1",
-  "12.0.1",
-	"13.0.0",
-	"14.0.6",
+  "18.1.8",
 ]);
 
 /** Gets an LLVM download URL for the Windows platform. */
